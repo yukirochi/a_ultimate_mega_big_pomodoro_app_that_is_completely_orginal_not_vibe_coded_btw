@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus Bomb</title>
+  <meta name="description" content="A focused Pomodoro timer for deep work sessions" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent-work: #e05a2b;
+      --accent-break: #2b8ce0;
+      --success: #3dba6e;
+      --sidebar-w: 260px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── App Shell ── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Title Bar ── */
+    #titlebar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 40px; padding: 0 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+    }
+    #titlebar .app-name-group {
+      display: flex; align-items: center; gap: 10px;
+    }
+    #btn-drawer-toggle {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: transparent; color: var(--muted); cursor: pointer;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      -webkit-app-region: no-drag;
+    }
+    #btn-drawer-toggle:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+    #titlebar .app-name {
+      font-size: 13px; font-weight: 600; color: var(--accent-work);
+      letter-spacing: 0.04em; display: flex; align-items: center;
+    }
+    #titlebar .win-controls {
+      display: flex; gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+    #titlebar .win-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: transparent; color: var(--muted); cursor: pointer;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    #titlebar .win-btn:hover { background: var(--border); color: var(--text); }
+    #titlebar #btn-close:hover { background: #c0392b; color: #fff; }
+
+    /* ── Body ── */
+    #body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar (Drawer) ── */
+    #drawer-overlay {
+      position: fixed; inset: 40px 0 0 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 90; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      backdrop-filter: blur(2px);
+    }
+    #drawer-overlay.open {
+      opacity: 1; pointer-events: auto;
+    }
+
+    #sidebar {
+      position: fixed; top: 40px; bottom: 0; left: 0;
+      width: var(--sidebar-w); z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 12px 0;
+      overflow: hidden;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    }
+    #sidebar.open {
+      transform: translateX(0);
+    }
+
+    .nav-label {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      padding: 0 16px; margin-bottom: 6px;
+    }
+
+    .nav-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; cursor: pointer;
+      font-size: 13px; font-weight: 500;
+      color: var(--muted); border: none; background: transparent;
+      width: 100%; text-align: left;
+      transition: background 0.15s, color 0.15s;
+      border-radius: 0;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+    .nav-btn.active { color: var(--text); background: rgba(224,90,43,0.12); }
+    .nav-btn.active .nav-icon { color: var(--accent-work); }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-divider {
+      height: 1px; background: var(--border);
+      margin: 12px 16px;
+    }
+
+    /* ── Glassmorphism Player Card (UIverse-inspired) ── */
+    #audio-controls {
+      padding: 0 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* The card wrapper clips the animated orbs */
+    .player-card-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    /* Animated color orbs — orange + blue from project palette */
+    .player-orb {
+      position: absolute;
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .player-orb-1 {
+      background: var(--accent-work);
+      filter: drop-shadow(0 0 14px var(--accent-work));
+      top: 18px; left: 14px;
+      animation: orb1 6s ease-in-out infinite;
+    }
+    .player-orb-2 {
+      background: var(--accent-break);
+      filter: drop-shadow(0 0 14px var(--accent-break));
+      top: 80px; left: 100px;
+      animation: orb2 6s ease-in-out infinite;
+    }
+    @keyframes orb1 {
+      0%,100% { top:18px; left:14px; }
+      25%  { top:40px; left:36px; }
+      50%  { top:70px; left:60px; }
+      75%  { top:30px; left:80px; }
+    }
+    @keyframes orb2 {
+      0%,100% { top:80px; left:100px; }
+      25%  { top:50px; left:60px; }
+      50%  { top:20px; left:40px; }
+      75%  { top:60px; left:20px; }
+    }
+
+    /* Glass overlay — sits on top of the orbs */
+    .player-glass {
+      position: relative; z-index: 2;
+      background: rgba(22,22,22,0.60);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex; flex-direction: column; gap: 7px;
+      flex: 1;
+    }
+
+    /* Music note badge */
+    .player-badge {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.10);
+      margin: 0 auto 2px;
+      color: var(--accent-work);
+    }
+    .player-badge svg.lucide { font-size: 18px; }
+
+    /* Playlist List & Accordion */
+    #playlist-container {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      margin: 4px 0; border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 6px; background: rgba(0,0,0,0.2);
+    }
+    #playlist-container::-webkit-scrollbar { width: 4px; }
+    #playlist-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+    
+    .playlist-folder {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .playlist-folder-header {
+      padding: 6px 8px; font-size: 10px; color: var(--text); font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: background 0.15s;
+    }
+    .playlist-folder-header:hover { background: rgba(255,255,255,0.05); }
+    .playlist-folder-header svg.lucide { font-size: 12px; color: var(--muted); }
+    .playlist-folder-header.drag-over { background: rgba(224,90,43,0.2); border: 1px dashed var(--accent-work); }
+    
+    .playlist-folder-content {
+      display: none; flex-direction: column;
+      background: rgba(0,0,0,0.15);
+    }
+    .playlist-folder-content.expanded { display: flex; }
+
+    .playlist-item {
+      padding: 6px 10px 6px 24px; font-size: 10px; color: var(--muted);
+      cursor: grab; transition: all 0.15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-bottom: 1px solid rgba(255,255,255,0.02);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .playlist-item:active { cursor: grabbing; }
+    .playlist-item:last-child { border-bottom: none; }
+    .playlist-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+    .playlist-item.active { background: rgba(224,90,43,0.15); color: var(--accent-work); font-weight: 600; }
+
+    /* Equalizer Animation for Active Track */
+    .eq-bars {
+      display: none; gap: 2px; height: 10px; align-items: flex-end;
+    }
+    .playlist-item.active .eq-bars { display: flex; }
+    .eq-bar {
+      width: 2px; background: var(--accent-work); border-radius: 1px;
+      animation: eq-bounce 1s infinite ease-in-out;
+    }
+    .eq-bar:nth-child(1) { animation-delay: 0s; }
+    .eq-bar:nth-child(2) { animation-delay: -0.2s; }
+    .eq-bar:nth-child(3) { animation-delay: -0.4s; }
+    @keyframes eq-bounce {
+      0%, 100% { height: 2px; }
+      50% { height: 10px; }
+    }
+
+    /* Buttons row */
+    .playlist-btn-row {
+      display: flex; gap: 4px; margin-bottom: 4px;
+    }
+    .player-folder-btn {
+      flex: 1; padding: 6px 0; border-radius: 7px;
+      border: 1px dashed rgba(255,255,255,0.15); background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 9px;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      transition: all 0.15s;
+    }
+    .player-folder-btn:hover { border-color: var(--accent-work); color: var(--accent-work); }
+    .player-folder-btn svg.lucide { font-size: 11px; }
+
+    /* Controls: play + volume */
+    .player-controls {
+      display: flex; align-items: center; gap: 6px;
+      justify-content: center;
+    }
+    #ambient-play-btn {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      border: none;
+      background: var(--accent-work);
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 12px rgba(224,90,43,0.5);
+      transition: all 0.2s;
+    }
+    #ambient-play-btn:hover:not(:disabled) {
+      transform: scale(1.1);
+      box-shadow: 0 0 18px rgba(224,90,43,0.7);
+    }
+    #ambient-play-btn:disabled { opacity: 0.35; cursor: not-allowed; background: var(--border); box-shadow: none; }
+    #ambient-play-btn svg.lucide { font-size: 12px; }
+    .vol-row { display: flex; align-items: center; gap: 5px; flex: 1; }
+    .vol-icon { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+    #vol-slider {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 3px; border-radius: 2px; background: rgba(255,255,255,0.1);
+      outline: none; cursor: pointer;
+    }
+    #vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 11px; height: 11px;
+      border-radius: 50%; background: var(--accent-work); cursor: pointer;
+      box-shadow: 0 0 6px rgba(224,90,43,0.6);
+    }
+    /* Embed container for YouTube/Spotify iframes */
+    #embed-container { width: 100%; flex-shrink: 0; }
+
+    /* ── Main Content ── */
+    #main { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+    .view { display: none; height: 100%; }
+    .view.active { display: flex; flex-direction: column; }
+
+    /* ── Session Configurator ── */
+    #cfg-panel {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 32px; overflow-y: auto;
+    }
+    #cfg-panel h2 {
+      font-size: 20px; font-weight: 600; margin-bottom: 6px;
+    }
+    #cfg-panel .subtitle {
+      color: var(--muted); font-size: 13px; margin-bottom: 24px;
+    }
+
+    .cfg-top-row {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+    }
+    .cfg-top-row label { font-size: 13px; color: var(--muted); }
+    .num-input {
+      width: 64px; padding: 6px 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 14px; font-weight: 500;
+      text-align: center; outline: none;
+    }
+    .num-input:focus { border-color: var(--accent-work); }
+
+    #apply-all-btn {
+      margin-left: auto;
+      padding: 8px 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 12px;
+      transition: all 0.15s;
+    }
+    #apply-all-btn:hover {
+      border-color: var(--accent-work); color: var(--accent-work);
+    }
+
+    #sessions-table {
+      border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; margin-bottom: 24px;
+    }
+    .tbl-header, .session-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 1fr 80px;
+      align-items: center;
+    }
+    .tbl-header {
+      background: rgba(255,255,255,0.03);
+      padding: 10px 16px;
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+    .session-row {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .session-row:last-child { border-bottom: none; }
+    .session-row:hover { background: rgba(255,255,255,0.02); }
+    .session-row .snum {
+      font-size: 12px; font-weight: 600; color: var(--muted);
+    }
+    .session-row .sin-wrap { display: flex; align-items: center; gap: 6px; }
+    .session-row .sin-wrap span { font-size: 11px; color: var(--muted); }
+    .session-row input.row-input {
+      width: 60px; padding: 5px 8px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 13px; text-align: center; outline: none;
+    }
+    .session-row input.row-input:focus { border-color: var(--accent-work); }
+    .session-row input.row-input.error { border-color: #e03b3b; }
+    .session-row .dash { color: var(--muted); font-size: 13px; }
+
+    #start-btn {
+      align-self: flex-start;
+      padding: 12px 32px; border-radius: 10px;
+      border: none; background: var(--accent-work);
+      color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #start-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    #start-btn:active { transform: translateY(0); }
+
+    /* ── Timer View ── */
+    #timer-view {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 32px; gap: 24px;
+    }
+
+    #session-label {
+      font-size: 13px; font-weight: 500; color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    #phase-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      padding: 4px 12px; border-radius: 20px;
+      background: rgba(224,90,43,0.15); color: var(--accent-work);
+    }
+    #phase-label.break {
+      background: rgba(43,140,224,0.15); color: var(--accent-break);
+    }
+
+    /* ── Progress Ring ── */
+    #ring-wrap { position: relative; width: 300px; height: 300px; }
+    #ring-svg { transform: rotate(-90deg); }
+    #ring-track { stroke: var(--border); fill: none; }
+    #ring-progress {
+      fill: none; stroke: var(--accent-work);
+      stroke-linecap: round;
+      transition: stroke 0.3s;
+    }
+    #timer-display {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 72px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -2px;
+      font-family: 'Inter', monospace;
+    }
+
+    /* ── Timer Controls ── */
+    #timer-controls { display: flex; gap: 12px; align-items: center; }
+    .ctrl-btn {
+      padding: 10px 24px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); cursor: pointer;
+      font-size: 13px; font-weight: 500;
+      transition: all 0.15s;
+    }
+    .ctrl-btn:hover { border-color: var(--muted); }
+    #btn-start-pause {
+      padding: 10px 32px; border-radius: 10px; border: none;
+      background: var(--accent-work); color: #fff;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    #btn-start-pause:hover { opacity: 0.85; }
+    #btn-start-pause.break-mode { background: var(--accent-break); }
+
+    /* ── Session Dots ── */
+    #session-dots { display: flex; gap: 10px; align-items: center; }
+    .sdot {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      transition: all 0.3s;
+    }
+    .sdot.completed { background: var(--success); border-color: var(--success); }
+    .sdot.current {
+      background: var(--accent-work); border-color: var(--accent-work);
+      box-shadow: 0 0 0 4px rgba(224,90,43,0.25);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    .sdot.current.break {
+      background: var(--accent-break); border-color: var(--accent-break);
+      box-shadow: 0 0 0 4px rgba(43,140,224,0.25);
+    }
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(224,90,43,0.25); }
+      50% { box-shadow: 0 0 0 8px rgba(224,90,43,0.1); }
+    }
+
+    /* ── History View ── */
+    #history-view { padding: 32px; overflow-y: auto; }
+    .hist-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .hist-header h2 { font-size: 20px; font-weight: 600; }
+    .hist-controls { display: flex; gap: 10px; align-items: center; }
+    .range-select {
+      padding: 6px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 13px; outline: none; cursor: pointer;
+    }
+    #hist-refresh {
+      padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 13px;
+      transition: all 0.15s;
+    }
+    #hist-refresh:hover { border-color: var(--accent-work); color: var(--accent-work); }
+
+    .summary-cards {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .stat-card .val {
+      font-size: 28px; font-weight: 600; margin-bottom: 4px;
+    }
+    .stat-card .lbl { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+    #hist-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .hist-tbl-header {
+      display: grid;
+      grid-template-columns: 120px 1fr 1fr 1fr;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.03);
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+    .hist-row {
+      border-bottom: 1px solid var(--border);
+    }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-row-main {
+      display: grid;
+      grid-template-columns: 120px 1fr 1fr 1fr;
+      padding: 12px 16px; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .hist-row-main:hover { background: rgba(255,255,255,0.02); }
+    .hist-row-main .date-cell { font-weight: 500; font-size: 13px; }
+    .hist-row-main .data-cell { color: var(--muted); font-size: 13px; }
+    .hist-row-detail {
+      display: none; padding: 0 16px 12px 16px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,0.01);
+    }
+    .hist-row-detail.open { display: block; }
+    .detail-session {
+      display: flex; gap: 16px; padding: 6px 0;
+      font-size: 12px; color: var(--muted);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .detail-session:last-child { border-bottom: none; }
+    .detail-session .ds-num { font-weight: 600; color: var(--text); width: 80px; }
+    .ds-badge {
+      padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;
+    }
+    .ds-badge.done { background: rgba(61,186,110,0.15); color: var(--success); }
+    .ds-badge.abandoned { background: rgba(200,50,50,0.15); color: #e05a5a; }
+
+    #hist-empty {
+      text-align: center; padding: 48px; color: var(--muted); font-size: 14px;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+    /* ── Lucide icons ── */
+    svg.lucide {
+      width: 1em; height: 1em;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round; stroke-linejoin: round;
+      vertical-align: middle; display: inline-block;
+    }
+    .nav-icon svg.lucide { font-size: 16px; }
+    .vol-icon svg.lucide  { font-size: 14px; color: var(--muted); }
+    .win-btn svg.lucide   { font-size: 13px; }
+    .app-logo svg.lucide  { font-size: 15px; margin-right: 4px; color: var(--accent-work); }
+
+    /* ── Ambient play/pause button ── */
+    .ambient-play-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 10px;
+    }
+    #ambient-play-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer;
+      transition: all 0.15s;
+    }
+    #ambient-play-btn:hover:not(:disabled) {
+      border-color: var(--accent-work); color: var(--accent-work);
+      background: rgba(224,90,43,0.08);
+    }
+    #ambient-play-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #ambient-play-btn svg.lucide { font-size: 14px; }
+    #ambient-now-playing {
+      font-size: 11px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Title Bar -->
+  <div id="titlebar">
+    <div class="app-name-group">
+      <button id="btn-drawer-toggle" title="Toggle Menu"><i data-lucide="menu"></i></button>
+      <span class="app-name app-logo"><i data-lucide="zap"></i> Focus Bomb</span>
+    </div>
+    <div class="win-controls">
+      <button class="win-btn" id="btn-minimize" title="Minimize"><i data-lucide="minus"></i></button>
+      <button class="win-btn" id="btn-close"   title="Close"><i data-lucide="x"></i></button>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div id="body">
+
+    <!-- Drawer Overlay -->
+    <div id="drawer-overlay"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <p class="nav-label">Navigation</p>
+      <button class="nav-btn active" data-view="timer" id="nav-timer">
+        <span class="nav-icon"><i data-lucide="timer"></i></span> Timer
+      </button>
+      <button class="nav-btn" data-view="history" id="nav-history">
+        <span class="nav-icon"><i data-lucide="bar-chart-2"></i></span> History
+      </button>
+
+      <div class="sidebar-divider"></div>
+
+      <div id="audio-controls">
+        <div class="player-card-wrap">
+          <div class="player-orb player-orb-1"></div>
+          <div class="player-orb player-orb-2"></div>
+          <div class="player-glass">
+            <!-- Now playing -->
+            <div class="player-badge">
+              <i data-lucide="music"></i>
+            </div>
+            <div id="player-track-name">No track loaded</div>
+            <div class="player-sub">Focus Bomb Audio</div>
+
+            <!-- Time Slider -->
+            <div class="time-row" id="player-time-row" style="display: none;">
+              <span id="time-current">0:00</span>
+              <input type="range" id="time-slider" min="0" max="100" value="0" />
+              <span id="time-total">0:00</span>
+            </div>
+
+            <!-- Playlist -->
+            <div id="playlist-container">
+              <div style="padding: 10px; text-align: center; color: var(--muted); font-size: 9px;">Loading playlist...</div>
+            </div>
+            
+            <div class="playlist-btn-row">
+              <button class="player-folder-btn" id="new-playlist-btn" title="Create Playlist">
+                <i data-lucide="folder-plus"></i> New
+              </button>
+              <button class="player-folder-btn" id="open-playlist-btn" title="Open Folder">
+                <i data-lucide="folder-open"></i> Open
+              </button>
+            </div>
+
+            <!-- Controls: play/pause + volume -->
+            <div class="player-controls">
+              <button id="ambient-play-btn" disabled title="Play / Pause">
+                <span id="amb-play-ico"><i data-lucide="play"></i></span>
+                <span id="amb-pause-ico" style="display:none"><i data-lucide="pause"></i></span>
+              </button>
+              <div class="vol-row">
+                <span class="vol-icon"><i data-lucide="volume-1"></i></span>
+                <input type="range" id="vol-slider" min="0" max="100" value="40" />
+                <span class="vol-icon"><i data-lucide="volume-2"></i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div id="main">
+
+      <!-- ── Timer View ── -->
+      <div class="view active" id="view-timer">
+
+        <!-- Configurator -->
+        <div id="cfg-panel">
+          <h2>Set up your sessions</h2>
+          <p class="subtitle">Configure each work and break duration, then hit Start.</p>
+
+          <div class="cfg-top-row">
+            <label for="session-count">Number of sessions</label>
+            <input type="number" class="num-input" id="session-count" min="1" max="10" value="5" />
+            <button id="apply-all-btn">Apply session 1 to all</button>
+          </div>
+
+          <div id="sessions-table">
+            <div class="tbl-header">
+              <span>Session</span>
+              <span>Work (min)</span>
+              <span>Break (min)</span>
+              <span></span>
+            </div>
+            <div id="session-rows"></div>
+          </div>
+
+          <button id="start-btn">Start Focus Session</button>
+        </div>
+
+        <!-- Timer Display (hidden until running) -->
+        <div id="timer-view" style="display:none">
+          <div id="session-label">Session 1 of 5</div>
+          <div id="phase-label">Work</div>
+
+          <div id="ring-wrap">
+            <svg id="ring-svg" width="300" height="300" viewBox="0 0 300 300">
+              <circle id="ring-track" cx="150" cy="150" r="120" stroke-width="10" />
+              <circle id="ring-progress" cx="150" cy="150" r="120" stroke-width="10"
+                stroke-dasharray="753.98" stroke-dashoffset="0" />
+            </svg>
+            <div id="timer-display">25:00</div>
+          </div>
+
+          <div id="timer-controls">
+            <button class="ctrl-btn" id="btn-skip">Skip</button>
+            <button id="btn-start-pause">Start</button>
+            <button class="ctrl-btn" id="btn-reset">Reset</button>
+          </div>
+
+          <div id="session-dots"></div>
+        </div>
+      </div>
+
+      <!-- ── History View ── -->
+      <div class="view" id="view-history">
+        <div id="history-view">
+          <div class="hist-header">
+            <h2>History</h2>
+            <div class="hist-controls">
+              <select class="range-select" id="hist-range">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+              <button id="hist-refresh"><i data-lucide="refresh-cw"></i> Refresh</button>
+            </div>
+          </div>
+
+          <div class="summary-cards">
+            <div class="stat-card">
+              <div class="val" id="stat-sessions">0</div>
+              <div class="lbl">Sessions completed</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="stat-focus">0 min</div>
+              <div class="lbl">Total focus time</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="stat-streak">0 days</div>
+              <div class="lbl">Current streak</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="stat-best">—</div>
+              <div class="lbl">Best day</div>
+            </div>
+          </div>
+
+          <div id="hist-table">
+            <div class="hist-tbl-header">
+              <span>Date</span>
+              <span>Sessions</span>
+              <span>Focus time</span>
+              <span>Avg duration</span>
+            </div>
+            <div id="hist-rows"></div>
+          </div>
+          <div id="hist-empty" style="display:none">No sessions recorded yet. Start your first focus session!</div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /body -->
+</div><!-- /app -->
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="timer.js"></script>
+<script src="audio.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>
