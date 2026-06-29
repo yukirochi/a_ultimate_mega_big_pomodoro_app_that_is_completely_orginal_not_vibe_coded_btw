@@ -1,4 +1,4 @@
-/* renderer.js — Focus Bomb UI logic */
+/* renderer.js — Constant UI logic */
 
 (function () {
   'use strict';
@@ -63,128 +63,238 @@
     overlay.classList.remove('open');
   });
 
-  // ── Mini Player Controls ──────────────────────────────────────────────────
-  function setPlayerUI(trackName, playing, isFile = false) {
-    const nameEl   = $('player-track-name');
-    const playBtn  = $('ambient-play-btn');
-    const playIco  = $('amb-play-ico');
-    const pauseIco = $('amb-pause-ico');
-    const timeRow  = $('player-time-row');
-
-    if (nameEl && trackName != null) nameEl.textContent = trackName;
-    if (playBtn)  playBtn.disabled = (audio._mode === 'off');
-    if (playIco)  playIco.style.display  = playing ? 'none' : '';
-    if (pauseIco) pauseIco.style.display = playing ? ''     : 'none';
-    if (timeRow)  timeRow.style.display  = isFile ? 'flex' : 'none';
-  }
+  // ── MP3 Player Controls ───────────────────────────────────────────────────
+  let currentTrackIndex = -1;
+  let playlist = []; // kept in sync with loadPlaylist
 
   function formatAudioTime(seconds) {
-    if (isNaN(seconds)) return '0:00';
+    if (!seconds || isNaN(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   }
 
-  let isDraggingSlider = false;
+  // Progress bar — custom div-based, not <input range>
+  const progressTrack = $('progress-bar-track');
+  const progressFill  = $('progress-bar-fill');
+  const progressThumb = $('progress-bar-thumb');
+  let isDraggingProgress = false;
+
+  function setProgressUI(pct) {
+    const clamped = Math.max(0, Math.min(100, pct));
+    progressFill.style.width  = clamped + '%';
+    progressThumb.style.left  = clamped + '%';
+    // also keep hidden range in sync (for legacy seekTo usage)
+    $('time-slider').value = clamped;
+  }
+
   audio.onTimeUpdate = (curr, total) => {
-    if (!isDraggingSlider && total) {
-      $('time-current').textContent = formatAudioTime(curr);
-      $('time-total').textContent = formatAudioTime(total);
-      $('time-slider').value = (curr / total) * 100;
-    }
+    if (isDraggingProgress || !total) return;
+    $('time-current').textContent = formatAudioTime(curr);
+    $('time-total').textContent   = formatAudioTime(total);
+    setProgressUI((curr / total) * 100);
   };
 
-  $('time-slider').addEventListener('input', () => { isDraggingSlider = true; });
-  $('time-slider').addEventListener('change', e => {
-    isDraggingSlider = false;
-    if (audio._customAudio && audio._customAudio.duration) {
-      audio.seekTo((e.target.value / 100) * audio._customAudio.duration);
-    }
-  });
-
-  // Playlist logic
-  let draggedTrackPath = null;
-
-  async function loadPlaylist() {
-    const container = $('playlist-container');
-    if (!container) return;
-    try {
-      const folders = await window.focusBomb.getPlaylist();
-      if (!folders || folders.length === 0) {
-        container.innerHTML = `<div style="padding: 10px; text-align: center; color: var(--muted); font-size: 9px;">Drop MP3s in folder</div>`;
-        return;
-      }
-      container.innerHTML = '';
-      
-      folders.forEach(folder => {
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'playlist-folder';
-        
-        const header = document.createElement('div');
-        header.className = 'playlist-folder-header';
-        header.innerHTML = `<i data-lucide="${folder.isRoot ? 'home' : 'folder'}"></i> ${folder.name}`;
-        
-        const content = document.createElement('div');
-        content.className = 'playlist-folder-content expanded';
-        
-        header.addEventListener('click', () => content.classList.toggle('expanded'));
-        
-        // Drag and drop target
-        header.addEventListener('dragover', e => { e.preventDefault(); header.classList.add('drag-over'); });
-        header.addEventListener('dragleave', () => header.classList.remove('drag-over'));
-        header.addEventListener('drop', async e => {
-          e.preventDefault();
-          header.classList.remove('drag-over');
-          if (draggedTrackPath) {
-            await window.focusBomb.moveTrack(draggedTrackPath, folder.path);
-            loadPlaylist();
-          }
-        });
-        
-        // Render files
-        folder.files.forEach(f => {
-          const item = document.createElement('div');
-          item.className = 'playlist-item';
-          item.draggable = true;
-          item.innerHTML = `
-            <span style="overflow:hidden; text-overflow:ellipsis;">${f.name}</span>
-            <div class="eq-bars">
-              <div class="eq-bar"></div>
-              <div class="eq-bar"></div>
-              <div class="eq-bar"></div>
-            </div>
-          `;
-          
-          item.addEventListener('dragstart', () => { draggedTrackPath = f.rawPath; });
-          item.addEventListener('click', () => {
-            document.querySelectorAll('.playlist-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            audio.play(f.path);
-            setPlayerUI(f.name, true, true);
-          });
-          content.appendChild(item);
-        });
-        
-        if (folder.files.length === 0) {
-          content.innerHTML = `<div style="padding: 4px 10px 4px 24px; font-size: 9px; color: var(--border);">Empty</div>`;
-        }
-        
-        folderDiv.appendChild(header);
-        folderDiv.appendChild(content);
-        container.appendChild(folderDiv);
-      });
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    } catch (e) {
-      container.innerHTML = `<div style="padding: 10px; text-align: center; color: var(--muted); font-size: 9px;">Error loading playlist</div>`;
+  function seekFromEvent(e) {
+    const rect = progressTrack.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setProgressUI(pct * 100);
+    if (audio._customAudio?.duration) {
+      audio.seekTo(pct * audio._customAudio.duration);
     }
   }
 
-  $('new-playlist-btn').addEventListener('click', async () => {
-    const name = prompt("Enter new playlist name:");
-    if (name && name.trim()) {
-      await window.focusBomb.createPlaylistFolder(name.trim());
-      loadPlaylist();
+  progressTrack.addEventListener('mousedown', e => {
+    isDraggingProgress = true;
+    seekFromEvent(e);
+    function onMove(ev) { seekFromEvent(ev); }
+    function onUp()  { isDraggingProgress = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Volume fill sync
+  const volFill   = $('vol-fill');
+  const volSlider = $('vol-slider');
+  function syncVolFill(v) { volFill.style.width = v + '%'; }
+  volSlider.addEventListener('input', e => {
+    syncVolFill(e.target.value);
+    audio.setVolume(e.target.value / 100);
+  });
+  syncVolFill(40);
+
+  // Disc spin + track info
+  const disc = $('player-disc');
+  const trackNameEl = $('player-track-name');
+
+  function setPlayerUI(trackName, playing, isFile = false) {
+    const playBtn  = $('ambient-play-btn');
+    const playIco  = $('amb-play-ico');
+    const pauseIco = $('amb-pause-ico');
+
+    if (trackName != null) {
+      trackNameEl.textContent = trackName || 'No track loaded';
+      // Scroll if text overflows its container
+      trackNameEl.classList.remove('scrolling');
+      requestAnimationFrame(() => {
+        if (trackNameEl.scrollWidth > trackNameEl.parentElement.clientWidth + 4) {
+          trackNameEl.classList.add('scrolling');
+        }
+      });
     }
+
+    if (playing) { disc.classList.add('spinning'); }
+    else         { disc.classList.remove('spinning'); }
+
+    if (playBtn)  playBtn.disabled = (audio._mode === 'off');
+    if (playIco)  playIco.style.display  = playing ? 'none' : '';
+    if (pauseIco) pauseIco.style.display = playing ? ''     : 'none';
+  }
+
+  // Play / pause
+  $('ambient-play-btn').addEventListener('click', () => {
+    if (audio._mode === 'off') return;
+    const playing = audio.toggleAmbient();
+    setPlayerUI(null, playing, true);
+  });
+
+  // Prev / Next
+  function playIndex(idx) {
+    if (!playlist.length) return;
+    currentTrackIndex = ((idx % playlist.length) + playlist.length) % playlist.length;
+    const f = playlist[currentTrackIndex];
+    audio.play(f.path);
+    setPlayerUI(f.name.replace(/\.mp3$/i, ''), true, true);
+    setProgressUI(0);
+    $('time-current').textContent = '0:00';
+    // Highlight active in list
+    document.querySelectorAll('.playlist-item').forEach((el, i) => {
+      el.classList.toggle('active', i === currentTrackIndex);
+    });
+  }
+
+  $('btn-prev').addEventListener('click', () => { if (playlist.length) playIndex(currentTrackIndex - 1); });
+  $('btn-next').addEventListener('click', () => { if (playlist.length) playIndex(currentTrackIndex + 1); });
+
+  // Auto-next when track ends
+  audio.onEnded = () => {
+    if (playlist.length > 1) playIndex(currentTrackIndex + 1);
+  };
+
+  // ── Playlist (flat directory view) ──────────────────────────────────────────
+
+  // ── Context Menu ─────────────────────────────────────────────────────────
+  const ctxMenu = $('ctx-menu');
+
+  function showCtxMenu(x, y, items) {
+    ctxMenu.innerHTML = '';
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-item' + (item.danger ? ' danger' : '');
+      btn.innerHTML = `<i data-lucide="${item.icon}"></i> ${item.label}`;
+      btn.addEventListener('click', () => { hideCtxMenu(); item.action(); });
+      ctxMenu.appendChild(btn);
+    });
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    ctxMenu.style.display = 'block';
+    // Keep inside viewport
+    const mw = ctxMenu.offsetWidth || 160;
+    const mh = ctxMenu.offsetHeight || 60;
+    let cx = x, cy = y;
+    if (cx + mw > window.innerWidth  - 6) cx = window.innerWidth  - mw - 6;
+    if (cy + mh > window.innerHeight - 6) cy = window.innerHeight - mh - 6;
+    ctxMenu.style.left = cx + 'px';
+    ctxMenu.style.top  = cy + 'px';
+  }
+
+  function hideCtxMenu() { ctxMenu.style.display = 'none'; }
+  document.addEventListener('click', hideCtxMenu);
+  document.addEventListener('contextmenu', hideCtxMenu);
+
+  // ── Render flat file list ─────────────────────────────────────────────────
+  async function loadPlaylist() {
+    const container = $('playlist-container');
+    if (!container) return;
+
+    try {
+      const files = await window.focusBomb.getPlaylist();
+      playlist = files || []; // sync the shared array
+      container.innerHTML = '';
+
+      if (!files || files.length === 0) {
+        playlist = [];
+        container.innerHTML = `
+          <div class="pl-drop-hint">
+            <i data-lucide="music-2"></i>
+            <span>Drop MP3 files here</span>
+          </div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+
+      files.forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.className = 'playlist-item';
+        if (idx === currentTrackIndex) item.classList.add('active');
+        item.innerHTML = `
+          <span class="track-name">${f.name.replace(/\.mp3$/i, '')}</span>
+          <div class="eq-bars">
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+          </div>
+        `;
+
+        item.addEventListener('click', () => { playIndex(idx); });
+
+        item.addEventListener('contextmenu', e => {
+          e.preventDefault(); e.stopPropagation();
+          showCtxMenu(e.clientX, e.clientY, [{
+            icon: 'trash-2', label: 'Remove', danger: true,
+            action: async () => {
+              await window.focusBomb.deleteTrack(f.rawPath);
+              loadPlaylist();
+            }
+          }]);
+        });
+
+        container.appendChild(item);
+      });
+
+    } catch {
+      container.innerHTML = `<div class="pl-drop-hint"><span>Error loading files</span></div>`;
+    }
+  }
+
+  // ── Drop zone: whole playlist-container accepts OS file drops ─────────────
+  const plContainer = $('playlist-container');
+
+  plContainer.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    plContainer.classList.add('drag-active');
+  });
+
+  plContainer.addEventListener('dragleave', e => {
+    if (!plContainer.contains(e.relatedTarget)) {
+      plContainer.classList.remove('drag-active');
+    }
+  });
+
+  plContainer.addEventListener('drop', async e => {
+    e.preventDefault();
+    plContainer.classList.remove('drag-active');
+
+    const files = Array.from(e.dataTransfer.files).filter(f =>
+      f.name.toLowerCase().endsWith('.mp3')
+    );
+    if (!files.length) return;
+
+    const paths = files.map(f => f.path).filter(Boolean);
+    if (!paths.length) return;
+
+    const res = await window.focusBomb.copyFilesToPlaylist(paths);
+    if (res.ok) loadPlaylist();
   });
 
   $('open-playlist-btn').addEventListener('click', () => {
@@ -193,18 +303,6 @@
 
   window.addEventListener('focus', loadPlaylist);
   loadPlaylist();
-
-  // Play / pause toggle
-  $('ambient-play-btn').addEventListener('click', () => {
-    if (audio._mode === 'off') return;
-    const playing = audio.toggleAmbient();
-    setPlayerUI(null, playing, !!audio._customAudio);
-  });
-
-  // Volume
-  $('vol-slider').addEventListener('input', e => {
-    audio.setVolume(e.target.value / 100);
-  });
 
   // ── Configurator ────────────────────────────────────────────────────────────
   function buildSessionRows(count) {

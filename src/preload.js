@@ -11,6 +11,6 @@ contextBridge.exposeInMainWorld('focusBomb', {
   closeWindow: () => ipcRenderer.invoke('close-window'),
   getPlaylist: () => ipcRenderer.invoke('get-playlist'),
   openPlaylistFolder: () => ipcRenderer.invoke('open-playlist-folder'),
-  createPlaylistFolder: (name) => ipcRenderer.invoke('create-playlist-folder', name),
-  moveTrack: (sourceRawPath, targetFolderPath) => ipcRenderer.invoke('move-track', sourceRawPath, targetFolderPath)
+  deleteTrack: (trackPath) => ipcRenderer.invoke('delete-track', trackPath),
+  copyFilesToPlaylist: (filePaths) => ipcRenderer.invoke('copy-files-to-playlist', filePaths),
 });

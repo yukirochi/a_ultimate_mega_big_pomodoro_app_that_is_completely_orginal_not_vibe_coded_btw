@@ -9,7 +9,7 @@
   },
   "build": {
     "appId": "com.focusbomb.app",
-    "productName": "Focus Bomb",
+    "productName": "Constant",
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon.png",

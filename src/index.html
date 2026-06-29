@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Focus Bomb</title>
+  <title>Constant</title>
   <meta name="description" content="A focused Pomodoro timer for deep work sessions" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -128,137 +128,232 @@
       margin: 12px 16px;
     }
 
-    /* ── Glassmorphism Player Card (UIverse-inspired) ── */
+    /* ── MP3 Player Card ── */
     #audio-controls {
-      padding: 0 10px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      padding: 0 10px 10px;
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
     }
-
-    /* The card wrapper clips the animated orbs */
     .player-card-wrap {
-      position: relative;
-      border-radius: 12px;
-      overflow: hidden;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
+      position: relative; border-radius: 14px; overflow: hidden;
+      flex: 1; display: flex; flex-direction: column; background: var(--bg);
     }
-
-    /* Animated color orbs — orange + blue from project palette */
     .player-orb {
-      position: absolute;
-      width: 64px; height: 64px;
-      border-radius: 50%;
-      pointer-events: none;
+      position: absolute; width: 90px; height: 90px;
+      border-radius: 50%; pointer-events: none;
     }
     .player-orb-1 {
-      background: var(--accent-work);
-      filter: drop-shadow(0 0 14px var(--accent-work));
-      top: 18px; left: 14px;
-      animation: orb1 6s ease-in-out infinite;
+      background: var(--accent-work); filter: blur(32px);
+      top: -10px; left: -10px;
+      animation: orb1 7s ease-in-out infinite;
     }
     .player-orb-2 {
-      background: var(--accent-break);
-      filter: drop-shadow(0 0 14px var(--accent-break));
-      top: 80px; left: 100px;
-      animation: orb2 6s ease-in-out infinite;
+      background: var(--accent-break); filter: blur(32px);
+      bottom: 30px; right: -10px;
+      animation: orb2 7s ease-in-out infinite;
     }
-    @keyframes orb1 {
-      0%,100% { top:18px; left:14px; }
-      25%  { top:40px; left:36px; }
-      50%  { top:70px; left:60px; }
-      75%  { top:30px; left:80px; }
-    }
-    @keyframes orb2 {
-      0%,100% { top:80px; left:100px; }
-      25%  { top:50px; left:60px; }
-      50%  { top:20px; left:40px; }
-      75%  { top:60px; left:20px; }
-    }
+    @keyframes orb1 { 0%,100% { transform:translate(0,0); } 50% { transform:translate(30px,20px); } }
+    @keyframes orb2 { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-30px,-15px); } }
 
-    /* Glass overlay — sits on top of the orbs */
     .player-glass {
       position: relative; z-index: 2;
-      background: rgba(22,22,22,0.60);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 10px;
-      display: flex; flex-direction: column; gap: 7px;
-      flex: 1;
+      background: rgba(12,12,12,0.78);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 12px 10px 10px;
+      display: flex; flex-direction: column; gap: 9px;
+      flex: 1; overflow: hidden;
     }
 
-    /* Music note badge */
-    .player-badge {
+    /* ── Vinyl Disc ── */
+    .player-disc-wrap { display:flex; justify-content:center; flex-shrink:0; }
+    .player-disc {
+      width: 70px; height: 70px; border-radius: 50%;
+      background: radial-gradient(circle at 38% 38%,
+        #2e2e2e 0%, #181818 35%, #0a0a0a 65%, #1e1e1e 100%);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.05),
+                  0 4px 20px rgba(0,0,0,0.6),
+                  inset 0 0 10px rgba(0,0,0,0.7);
       display: flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px; border-radius: 10px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.10);
-      margin: 0 auto 2px;
-      color: var(--accent-work);
+      position: relative; flex-shrink: 0;
     }
-    .player-badge svg.lucide { font-size: 18px; }
+    .player-disc.spinning {
+      animation: disc-spin 3.5s linear infinite;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.07),
+                  0 0 30px rgba(224,90,43,0.4),
+                  inset 0 0 10px rgba(0,0,0,0.7);
+    }
+    @keyframes disc-spin { to { transform: rotate(360deg); } }
+    .player-disc-ring {
+      position:absolute; inset:10px; border-radius:50%;
+      border: 1px solid rgba(255,255,255,0.07);
+      pointer-events:none;
+    }
+    .player-disc-center {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #0d0d0d; border: 2px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent-work); z-index: 1;
+    }
+    .player-disc-center svg.lucide { font-size: 10px; }
 
-    /* Playlist List & Accordion */
+    /* ── Track Info ── */
+    .player-info { text-align:center; flex-shrink:0; overflow:hidden; }
+    .player-track-scroll {
+      overflow: hidden; white-space: nowrap;
+      mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+    }
+    #player-track-name {
+      display: inline-block;
+      font-size: 11px; font-weight: 600; color: var(--text);
+    }
+    #player-track-name.scrolling { animation: track-scroll 9s linear infinite; }
+    @keyframes track-scroll { 0% { transform:translateX(55%); } 100% { transform:translateX(-105%); } }
+    .player-sub { font-size: 9px; color: var(--muted); margin-top: 1px; }
+
+    /* ── Progress Bar ── */
+    .player-progress-wrap { flex-shrink: 0; }
+    .progress-bar-track {
+      position: relative; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.08);
+      cursor: pointer; margin-bottom: 5px;
+    }
+    .progress-bar-fill {
+      position: absolute; top: 0; left: 0; height: 100%; width: 0%;
+      border-radius: 2px;
+      background: linear-gradient(to right, var(--accent-work), #ff7a3d);
+      pointer-events: none; transition: width 0.08s linear;
+    }
+    .progress-bar-thumb {
+      position: absolute; top: 50%; width: 11px; height: 11px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 0 7px rgba(224,90,43,0.8);
+      transform: translate(-50%, -50%); left: 0%;
+      opacity: 0; transition: opacity 0.15s, left 0.08s linear;
+      pointer-events: none;
+    }
+    .progress-bar-track:hover .progress-bar-thumb { opacity: 1; }
+    .progress-times {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: var(--muted);
+    }
+
+    /* ── Transport Controls ── */
+    .transport-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; flex-shrink: 0;
+    }
+    .transport-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+      color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .transport-btn:hover:not(:disabled) { border-color: var(--accent-work); color: var(--accent-work); background: rgba(224,90,43,0.1); }
+    .transport-btn:disabled { opacity: 0.28; cursor: not-allowed; }
+    .transport-btn svg.lucide { font-size: 13px; }
+    .transport-play {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: none; background: var(--accent-work);
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 18px rgba(224,90,43,0.55);
+      transition: all 0.2s;
+    }
+    .transport-play:hover:not(:disabled) { transform: scale(1.1); box-shadow: 0 0 26px rgba(224,90,43,0.75); }
+    .transport-play:disabled { opacity: 0.3; cursor: not-allowed; background: #333; box-shadow: none; }
+    .transport-play svg.lucide { font-size: 16px; }
+
+    /* ── Volume ── */
+    .vol-row { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .vol-icon svg.lucide { font-size: 12px; color: var(--muted); }
+    .vol-track {
+      flex: 1; position: relative; height: 3px;
+      background: rgba(255,255,255,0.08); border-radius: 2px;
+    }
+    .vol-fill {
+      position: absolute; top: 0; left: 0; height: 100%; width: 40%;
+      border-radius: 2px;
+      background: linear-gradient(to right, var(--accent-work), #ff7a3d);
+      pointer-events: none;
+    }
+    #vol-slider {
+      position: absolute; inset: -8px 0; opacity: 0;
+      cursor: pointer; width: 100%; margin: 0;
+    }
+
+    /* ── Playlist List ── */
     #playlist-container {
-      flex: 1; overflow-y: auto; overflow-x: hidden;
-      margin: 4px 0; border: 1px solid rgba(255,255,255,0.05);
+      flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0;
+      border: 1px solid rgba(255,255,255,0.05);
       border-radius: 6px; background: rgba(0,0,0,0.2);
     }
-    #playlist-container::-webkit-scrollbar { width: 4px; }
-    #playlist-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-    
-    .playlist-folder {
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
-    .playlist-folder-header {
-      padding: 6px 8px; font-size: 10px; color: var(--text); font-weight: 600;
-      cursor: pointer; display: flex; align-items: center; gap: 6px;
-      transition: background 0.15s;
-    }
-    .playlist-folder-header:hover { background: rgba(255,255,255,0.05); }
-    .playlist-folder-header svg.lucide { font-size: 12px; color: var(--muted); }
-    .playlist-folder-header.drag-over { background: rgba(224,90,43,0.2); border: 1px dashed var(--accent-work); }
-    
-    .playlist-folder-content {
-      display: none; flex-direction: column;
-      background: rgba(0,0,0,0.15);
-    }
-    .playlist-folder-content.expanded { display: flex; }
+    #playlist-container::-webkit-scrollbar { width: 3px; }
+    #playlist-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
     .playlist-item {
-      padding: 6px 10px 6px 24px; font-size: 10px; color: var(--muted);
-      cursor: grab; transition: all 0.15s;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      border-bottom: 1px solid rgba(255,255,255,0.02);
+      padding: 7px 10px; font-size: 10px; color: var(--muted);
+      cursor: pointer; transition: all 0.15s;
+      border-bottom: 1px solid rgba(255,255,255,0.025);
       display: flex; align-items: center; justify-content: space-between;
+      gap: 6px;
     }
-    .playlist-item:active { cursor: grabbing; }
     .playlist-item:last-child { border-bottom: none; }
     .playlist-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
     .playlist-item.active { background: rgba(224,90,43,0.15); color: var(--accent-work); font-weight: 600; }
 
-    /* Equalizer Animation for Active Track */
-    .eq-bars {
-      display: none; gap: 2px; height: 10px; align-items: flex-end;
-    }
+    /* Track name */
+    .track-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+    /* Equalizer Animation */
+    .eq-bars { display: none; gap: 2px; height: 10px; align-items: flex-end; flex-shrink: 0; }
     .playlist-item.active .eq-bars { display: flex; }
-    .eq-bar {
-      width: 2px; background: var(--accent-work); border-radius: 1px;
-      animation: eq-bounce 1s infinite ease-in-out;
-    }
+    .eq-bar { width: 2px; background: var(--accent-work); border-radius: 1px; animation: eq-bounce 1s infinite ease-in-out; }
     .eq-bar:nth-child(1) { animation-delay: 0s; }
     .eq-bar:nth-child(2) { animation-delay: -0.2s; }
     .eq-bar:nth-child(3) { animation-delay: -0.4s; }
-    @keyframes eq-bounce {
-      0%, 100% { height: 2px; }
-      50% { height: 10px; }
+    @keyframes eq-bounce { 0%, 100% { height: 2px; } 50% { height: 10px; } }
+
+    /* Drag-active glow on the container */
+    #playlist-container.drag-active {
+      outline: 2px dashed var(--accent-work);
+      outline-offset: -3px;
+      background: rgba(224,90,43,0.05);
     }
+
+    /* Empty / drop-hint state */
+    .pl-drop-hint {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; height: 100%; padding: 20px;
+      color: rgba(255,255,255,0.18); font-size: 10px; text-align: center;
+      pointer-events: none;
+    }
+    .pl-drop-hint svg.lucide { font-size: 28px; opacity: 0.3; }
+
+    /* ── Context Menu ── */
+    #ctx-menu {
+      display: none; position: fixed; z-index: 9999;
+      background: #1e1e1e; border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      padding: 4px; min-width: 130px;
+      animation: ctxFadeIn 0.1s ease;
+    }
+    @keyframes ctxFadeIn {
+      from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .ctx-item {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; padding: 7px 10px; border-radius: 5px;
+      border: none; background: transparent; color: var(--text);
+      font-size: 12px; cursor: pointer; text-align: left; transition: background 0.1s;
+    }
+    .ctx-item:hover { background: rgba(255,255,255,0.06); }
+    .ctx-item.danger { color: #e05a5a; }
+    .ctx-item.danger:hover { background: rgba(224,90,43,0.12); }
+    .ctx-item svg.lucide { font-size: 13px; flex-shrink: 0; }
+
 
     /* Buttons row */
     .playlist-btn-row {
@@ -274,39 +369,7 @@
     .player-folder-btn:hover { border-color: var(--accent-work); color: var(--accent-work); }
     .player-folder-btn svg.lucide { font-size: 11px; }
 
-    /* Controls: play + volume */
-    .player-controls {
-      display: flex; align-items: center; gap: 6px;
-      justify-content: center;
-    }
-    #ambient-play-btn {
-      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-      border: none;
-      background: var(--accent-work);
-      color: #fff; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 12px rgba(224,90,43,0.5);
-      transition: all 0.2s;
-    }
-    #ambient-play-btn:hover:not(:disabled) {
-      transform: scale(1.1);
-      box-shadow: 0 0 18px rgba(224,90,43,0.7);
-    }
-    #ambient-play-btn:disabled { opacity: 0.35; cursor: not-allowed; background: var(--border); box-shadow: none; }
-    #ambient-play-btn svg.lucide { font-size: 12px; }
-    .vol-row { display: flex; align-items: center; gap: 5px; flex: 1; }
-    .vol-icon { font-size: 12px; color: var(--muted); flex-shrink: 0; }
-    #vol-slider {
-      flex: 1; -webkit-appearance: none; appearance: none;
-      height: 3px; border-radius: 2px; background: rgba(255,255,255,0.1);
-      outline: none; cursor: pointer;
-    }
-    #vol-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 11px; height: 11px;
-      border-radius: 50%; background: var(--accent-work); cursor: pointer;
-      box-shadow: 0 0 6px rgba(224,90,43,0.6);
-    }
-    /* Embed container for YouTube/Spotify iframes */
+    /* Embed container */
     #embed-container { width: 100%; flex-shrink: 0; }
 
     /* ── Main Content ── */
@@ -606,7 +669,7 @@
   <div id="titlebar">
     <div class="app-name-group">
       <button id="btn-drawer-toggle" title="Toggle Menu"><i data-lucide="menu"></i></button>
-      <span class="app-name app-logo"><i data-lucide="zap"></i> Focus Bomb</span>
+      <span class="app-name app-logo"><i data-lucide="zap"></i> Constant</span>
     </div>
     <div class="win-controls">
       <button class="win-btn" id="btn-minimize" title="Minimize"><i data-lucide="minus"></i></button>
@@ -637,49 +700,81 @@
           <div class="player-orb player-orb-1"></div>
           <div class="player-orb player-orb-2"></div>
           <div class="player-glass">
-            <!-- Now playing -->
-            <div class="player-badge">
-              <i data-lucide="music"></i>
-            </div>
-            <div id="player-track-name">No track loaded</div>
-            <div class="player-sub">Focus Bomb Audio</div>
 
-            <!-- Time Slider -->
-            <div class="time-row" id="player-time-row" style="display: none;">
-              <span id="time-current">0:00</span>
-              <input type="range" id="time-slider" min="0" max="100" value="0" />
-              <span id="time-total">0:00</span>
+            <!-- ── Album Art Disc ── -->
+            <div class="player-disc-wrap">
+              <div class="player-disc" id="player-disc">
+                <div class="player-disc-ring"></div>
+                <div class="player-disc-center">
+                  <i data-lucide="music-2"></i>
+                </div>
+              </div>
             </div>
 
-            <!-- Playlist -->
-            <div id="playlist-container">
-              <div style="padding: 10px; text-align: center; color: var(--muted); font-size: 9px;">Loading playlist...</div>
+            <!-- ── Track Info ── -->
+            <div class="player-info">
+              <div class="player-track-scroll">
+                <span id="player-track-name">No track loaded</span>
+              </div>
+              <div class="player-sub" id="player-sub-label">Constant Audio</div>
             </div>
-            
-            <div class="playlist-btn-row">
-              <button class="player-folder-btn" id="new-playlist-btn" title="Create Playlist">
-                <i data-lucide="folder-plus"></i> New
+
+            <!-- ── Progress Bar ── -->
+            <div class="player-progress-wrap" id="player-progress-wrap">
+              <div class="progress-bar-track" id="progress-bar-track">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                <div class="progress-bar-thumb" id="progress-bar-thumb"></div>
+              </div>
+              <div class="progress-times">
+                <span id="time-current">0:00</span>
+                <span id="time-total">0:00</span>
+              </div>
+            </div>
+            <!-- hidden range keeps JS logic unchanged -->
+            <input type="range" id="time-slider" min="0" max="100" value="0" style="display:none" />
+
+            <!-- ── Transport Controls ── -->
+            <div class="transport-row">
+              <button class="transport-btn" id="btn-prev" title="Previous">
+                <i data-lucide="skip-back"></i>
               </button>
-              <button class="player-folder-btn" id="open-playlist-btn" title="Open Folder">
-                <i data-lucide="folder-open"></i> Open
-              </button>
-            </div>
-
-            <!-- Controls: play/pause + volume -->
-            <div class="player-controls">
-              <button id="ambient-play-btn" disabled title="Play / Pause">
+              <button class="transport-play" id="ambient-play-btn" disabled title="Play / Pause">
                 <span id="amb-play-ico"><i data-lucide="play"></i></span>
                 <span id="amb-pause-ico" style="display:none"><i data-lucide="pause"></i></span>
               </button>
-              <div class="vol-row">
-                <span class="vol-icon"><i data-lucide="volume-1"></i></span>
+              <button class="transport-btn" id="btn-next" title="Next">
+                <i data-lucide="skip-forward"></i>
+              </button>
+            </div>
+
+            <!-- ── Volume ── -->
+            <div class="vol-row">
+              <i data-lucide="volume-1" class="vol-icon"></i>
+              <div class="vol-track">
+                <div class="vol-fill" id="vol-fill"></div>
                 <input type="range" id="vol-slider" min="0" max="100" value="40" />
-                <span class="vol-icon"><i data-lucide="volume-2"></i></span>
+              </div>
+              <i data-lucide="volume-2" class="vol-icon"></i>
+            </div>
+
+            <!-- ── Playlist ── -->
+            <div id="playlist-container">
+              <div class="pl-drop-hint" style="pointer-events:none">
+                <i data-lucide="music-2"></i>
+                <span>Drop MP3 files here</span>
               </div>
             </div>
+
+            <div class="playlist-btn-row">
+              <button class="player-folder-btn" id="open-playlist-btn" title="Open music folder in file manager" style="flex:1">
+                <i data-lucide="folder-open"></i> Open Folder
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- Main -->
@@ -786,6 +881,8 @@
     </div><!-- /main -->
   </div><!-- /body -->
 </div><!-- /app -->
+
+<div id="ctx-menu"></div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script src="timer.js"></script>

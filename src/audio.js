@@ -10,6 +10,8 @@ class AudioEngine {
     this._paused = false;
     this._customAudio = null;
     this.onTimeUpdate = null;
+    this.onEnded = null;
+    this._mode = 'off';
   }
 
   _getCtx() {
@@ -101,10 +103,13 @@ class AudioEngine {
 
   _startFile(src) {
     const el = new Audio(src);
-    el.loop = true;
+    el.loop = false;
     el.volume = this._volume;
     el.addEventListener('timeupdate', () => {
       if (this.onTimeUpdate) this.onTimeUpdate(el.currentTime, el.duration);
+    });
+    el.addEventListener('ended', () => {
+      if (this.onEnded) this.onEnded();
     });
     el.play().catch(() => {});
     this._customAudio = el;
@@ -116,3 +121,4 @@ class AudioEngine {
     }
   }
 }
+

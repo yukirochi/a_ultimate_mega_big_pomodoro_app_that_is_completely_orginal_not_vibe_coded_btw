@@ -103,51 +103,45 @@ function getPlaylistDir() {
 ipcMain.handle('get-playlist', () => {
   try {
     const rootDir = getPlaylistDir();
-    const result = [];
-    const rootFiles = [];
-    
-    const items = fs.readdirSync(rootDir, { withFileTypes: true });
-    
-    for (const item of items) {
-      if (item.isDirectory()) {
-        const folderPath = path.join(rootDir, item.name);
-        const folderFiles = fs.readdirSync(folderPath, { withFileTypes: true })
-          .filter(f => f.isFile() && f.name.toLowerCase().endsWith('.mp3'))
-          .map(f => ({ name: f.name, path: `file://${path.join(folderPath, f.name)}`, rawPath: path.join(folderPath, f.name) }));
-        result.push({ name: item.name, path: folderPath, files: folderFiles, isRoot: false });
-      } else if (item.isFile() && item.name.toLowerCase().endsWith('.mp3')) {
-        rootFiles.push({ name: item.name, path: `file://${path.join(rootDir, item.name)}`, rawPath: path.join(rootDir, item.name) });
-      }
-    }
-    
-    result.unshift({ name: "Main Folder", path: rootDir, files: rootFiles, isRoot: true });
-    return result;
+    const files = fs.readdirSync(rootDir, { withFileTypes: true })
+      .filter(f => f.isFile() && f.name.toLowerCase().endsWith('.mp3'))
+      .map(f => ({
+        name: f.name,
+        path: `file://${path.join(rootDir, f.name)}`,
+        rawPath: path.join(rootDir, f.name)
+      }));
+    return files;
   } catch (err) {
     return [];
   }
 });
 
-ipcMain.handle('create-playlist-folder', (_event, folderName) => {
-  try {
-    const dir = path.join(getPlaylistDir(), folderName);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    return true;
-  } catch (err) {
-    return false;
-  }
-});
-
-ipcMain.handle('move-track', (_event, sourceRawPath, targetFolderPath) => {
-  try {
-    const fileName = path.basename(sourceRawPath);
-    const destPath = path.join(targetFolderPath, fileName);
-    fs.renameSync(sourceRawPath, destPath);
-    return true;
-  } catch (err) {
-    return false;
-  }
-});
-
 ipcMain.handle('open-playlist-folder', () => {
   shell.openPath(getPlaylistDir());
+});
+
+ipcMain.handle('delete-track', (_event, trackPath) => {
+  try {
+    if (fs.existsSync(trackPath)) fs.unlinkSync(trackPath);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('copy-files-to-playlist', (_event, filePaths) => {
+  try {
+    const rootDir = getPlaylistDir();
+    const copied = [];
+    for (const src of filePaths) {
+      if (!src.toLowerCase().endsWith('.mp3')) continue;
+      const fileName = path.basename(src);
+      const dest = path.join(rootDir, fileName);
+      fs.copyFileSync(src, dest);
+      copied.push(fileName);
+    }
+    return { ok: true, copied };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
